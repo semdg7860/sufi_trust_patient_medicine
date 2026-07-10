@@ -207,6 +207,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         .form-group { margin-bottom: 15px; position: relative; } 
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #555; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        .search-results-box { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid #ccc; border-top: none; border-radius: 0 0 4px 4px; max-height: 200px; overflow-y: auto; z-index: 99999; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: none; }
+        .search-item { padding: 10px; cursor: pointer; font-size: 14px; color: #333; border-bottom: 1px solid #f0f0f0; text-align: left; }
+        .search-item:hover { background-color: #edf6f9; color: var(--primary-color); font-weight: 600; }
         .form-row-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         
         .btn-submit { background-color: var(--success-color); color: white; width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; text-transform: uppercase; margin-top: 10px; }
@@ -284,9 +287,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
     <div class="container">
         
         <div class="patient-card">
-            <h3 style="color: var(--dark-color);"><i class="fa-solid fa-user-check"></i> Patient Information</h3>
+            <h3 style="color: var(--dark-color);"><i class="fa-solid fa-user-check"></i> Patient Information <strong>  (Date:</strong><span><?php echo $patient['date']; ?>)</span></h3>
             <div class="patient-grid">
-                <div class="info-block"><strong>Token ID & Name:</strong><span>#<?php echo $patient['id'] . " - " . $patient['patient_fullname']; ?></span></div>
+                <div class="info-block"><strong>Token ID - Name & Fees:</strong><span>#<?php echo $patient['id'] . " - " . $patient['patient_fullname']. " - " . $patient['fees']; ?></span></div>
                 <div class="info-block"><strong>Assigned Doctor:</strong><span style="color: #28a745;"><?php echo $patient['doctor_for_patient']; ?></span></div>
                 <div class="info-block"><strong>Age & Phone:</strong><span><?php echo $patient['patient_age']; ?> Yrs | <?php echo $patient['patient_phone']; ?></span></div>
                 <div class="info-block"><strong>Address:</strong><span><?php echo $patient['patient_address']; ?></span></div>
@@ -301,45 +304,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                     <input type="hidden" name="action_type" value="add_patient_med">
                     <input type="hidden" name="token_id" value="<?php echo $token_id; ?>">
 
-                    <div class="form-group">
+<div class="form-group" style="position: relative;">
                         <label>Medicine Name:</label>
-                        <select name="medicine_name" required>
-                            <option value="">Choose A Medicine Name</option>
-                            <?php 
-                            $sqlmed = "SELECT medicine_name FROM medicines GROUP BY medicine_name ORDER BY medicine_name ASC";
-                            $resultmed = $conn->query($sqlmed);
-                            if($resultmed && $resultmed->num_rows > 0) {
-                                while($rowmed = $resultmed->fetch_assoc()){
-                            ?>							
-                                    <option value="<?php echo htmlspecialchars($rowmed['medicine_name']); ?>"><?php echo htmlspecialchars($rowmed['medicine_name']); ?></option>
-                            <?php 
-                                }
-                            } 
-                            ?>								
-                        </select>
+                        <input type="text" name="medicine_name" id="medicine_name_autocomplete" placeholder="Type or search medicine name..." required autocomplete="off">
+                        <div id="medicine_suggestions_box" class="search-results-box"></div>
+                    </div>
+                    <div class="form-group" style="position: relative;">
+                        <label>Salt Name:</label>
+                        <input type="text" name="salt_name" id="salt_name_autocomplete" placeholder="Type or search salt name..." autocomplete="off">
+                        <div id="salt_suggestions_box" class="search-results-box"></div>
                     </div>
 
                     <div class="form-row-inner">
                         <div class="form-group">
                             <label>Form Type:</label>
-                            <select name="med_form">
-								<option value="Tablet">Tablet</option>
-								<option value="Syrup">Syrup</option>
-								<option value="Injection">Injection</option>
-								<option value="Drips">Drips</option>
-								<option value="Capsule">Capsule</option>
-								<option value="Drops">Drops</option>
-								<option value="Ointment">Ointment</option>
+                            <select name="med_form" id="med_form_input">
+                                <option value="Tablet">Tablet</option>
+                                <option value="Syrup">Syrup</option>
+                                <option value="Injection">Injection</option>
+                                <option value="Drips">Drips</option>
+                                <option value="Pieces">Pieces</option>
+                                <option value="Capsule">Capsule</option>
+                                <option value="Drops">Drops</option>
+                                <option value="Ointment">Ointment</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Measuring Unit:</label>
-                            <select name="med_unit">
-								<option value="Tablet">Tablet (Solid)</option>
-								<option value="Ml">Ml (Liquid)</option>
-								<option value="Pc(s)">Pc (Pieces)</option>
-								<option value="Dripset">Dripset</option>
-								<option value="Vial">Vial / Ampoule</option>
+                            <select name="med_unit" id="med_unit_input">
+                                <option value="Tablet">Tablet (Solid)</option>
+                                <option value="Ml">Ml (Liquid)</option>
+                                <option value="Pc(s)">Pc (Pieces)</option>
+                                <option value="Dripset">Dripset</option>
+                                <option value="Vial">Vial / Ampoule</option>
                             </select>
                         </div>
                     </div>
@@ -419,6 +416,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                             <option value="Syrup">Syrup</option>
                             <option value="Injection">Injection</option>
                             <option value="Drips">Drips</option>
+                            <option value="Pieces">Pieces</option>
                             <option value="Capsule">Capsule</option>
                             <option value="Drops">Drops</option>
                             <option value="Ointment">Ointment</option>
@@ -518,6 +516,70 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
             priceField.style.backgroundColor = '#fff';
         }
     }
+
+    function closeAllSuggestionBoxes() {
+        document.querySelectorAll('.search-results-box').forEach(box => box.style.display = 'none');
+    }
+
+    function fillPatientMedicineFields(item) {
+        if (!item) return;
+        if (item.medicine_name) document.getElementById('medicine_name_autocomplete').value = item.medicine_name;
+        if (item.salt_name) document.getElementById('salt_name_autocomplete').value = item.salt_name;
+        if (item.med_form) document.getElementById('med_form_input').value = item.med_form;
+        if (item.med_unit) document.getElementById('med_unit_input').value = item.med_unit;
+    }
+
+    function setupLiveSearch(inputElement, boxElement, searchType) {
+        if (!inputElement || !boxElement) return;
+        inputElement.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                fetch('search_medicine_endpoint.php?type=patient_medicine&q=' + encodeURIComponent(query))
+                    .then(response => response.json())
+                    .then(data => {
+                        boxElement.innerHTML = '';
+                        if (Array.isArray(data) && data.length > 0) {
+                            data.forEach(item => {
+                                const div = document.createElement('div');
+                                div.classList.add('search-item');
+                                if (searchType === 'medicine') {
+                                    div.textContent = item.medicine_name + (item.salt_name ? ' • ' + item.salt_name : '');
+                                } else {
+                                    div.textContent = item.salt_name + (item.medicine_name ? ' • ' + item.medicine_name : '');
+                                }
+                                div.addEventListener('click', function() {
+                                    fillPatientMedicineFields(item);
+                                    closeAllSuggestionBoxes();
+                                });
+                                boxElement.appendChild(div);
+                            });
+                            boxElement.style.display = 'block';
+                        } else {
+                            boxElement.style.display = 'none';
+                        }
+                    })
+                    .catch(() => boxElement.style.display = 'none');
+            } else {
+                boxElement.style.display = 'none';
+            }
+        });
+
+        inputElement.addEventListener('focus', function() {
+            if (boxElement.innerHTML.trim() !== '') {
+                boxElement.style.display = 'block';
+            }
+        });
+    }
+
+    // Setup live autocomplete search for medicine and salt
+    setupLiveSearch(document.getElementById('medicine_name_autocomplete'), document.getElementById('medicine_suggestions_box'), 'medicine');
+    setupLiveSearch(document.getElementById('salt_name_autocomplete'), document.getElementById('salt_suggestions_box'), 'salt');
+
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.form-group')) {
+            closeAllSuggestionBoxes();
+        }
+    });
 
     // Fetch Live List Function via AJAX
     function fetchMedicineList() {
