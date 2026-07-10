@@ -133,7 +133,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                 
                 // Action Icon trigger to Modal
                 $html .= '  <div class="token-cell action-cell" style="text-align: right;">
-                                <button type="button" class="btn-action-icon" onclick=\'openEditModal('.json_encode($med_row).')\' title="Edit/Manage" style="background:none; border:none; color:var(--primary-color); cursor:pointer;"><i class="fa-solid fa-pen-to-square"></i> Manage</button>
+                                <button type="button" class="btn-action-icon" onclick=\'openEditModal('.json_encode($med_row).')\' title="Edit/Manage" style="background:none; border:none; color:var(--primary-color);">
+                                    <i class="fa-solid fa-edit"></i>
+                                </button>
                             </div>';
                 $html .= '</div>';
             }
@@ -182,10 +184,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         h1, h2, h3, h4 { font-family: 'Montserrat', sans-serif; font-weight: 700; }
 
         /* Top Bar & Header */
-        .top-bar { background-color: var(--dark-color); color: white; padding: 12px 5%; display: flex; justify-content: space-between; align-items: center; font-size: 14px; border-bottom: 2px solid var(--secondary-color); }
+        .top-bar { background-color: var(--dark-color); color: white; padding: 12px 5%; display: flex; justify-content: space-between; align-items: center; font-size: 14px; border-bottom: 2px solid var(--accent-color); }
         .top-bar .badge { background-color: var(--accent-color); padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; }
         
-        header { background: white; padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 1000; }
+        header { background: white; padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 100; }
         .logo-container { display: flex; align-items: center; gap: 12px; cursor: pointer; }
         .logo-icon { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
         .logo-text h1 { font-size: 20px; color: var(--dark-color); line-height: 1.1; }
@@ -207,12 +209,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         .form-group { margin-bottom: 15px; position: relative; } 
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #555; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-        .search-results-box { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid #ccc; border-top: none; border-radius: 0 0 4px 4px; max-height: 200px; overflow-y: auto; z-index: 99999; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: none; }
+        .search-results-box { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid #ccc; border-top: none; border-radius: 0 0 4px 4px; max-height: 200px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .search-item { padding: 10px; cursor: pointer; font-size: 14px; color: #333; border-bottom: 1px solid #f0f0f0; text-align: left; }
         .search-item:hover { background-color: #edf6f9; color: var(--primary-color); font-weight: 600; }
         .form-row-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         
-        .btn-submit { background-color: var(--success-color); color: white; width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; text-transform: uppercase; margin-top: 10px; }
+        .btn-submit { background-color: var(--success-color); color: white; width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; text-transform: uppercase; transition: 0.3s; }
         .btn-submit:hover { background-color: #218838; }
 
         /* Fixed Proportional Rows for columns */
@@ -304,7 +306,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                     <input type="hidden" name="action_type" value="add_patient_med">
                     <input type="hidden" name="token_id" value="<?php echo $token_id; ?>">
 
-<div class="form-group" style="position: relative;">
+                    <div class="form-group" style="position: relative;">
                         <label>Medicine Name:</label>
                         <input type="text" name="medicine_name" id="medicine_name_autocomplete" placeholder="Type or search medicine name..." required autocomplete="off">
                         <div id="medicine_suggestions_box" class="search-results-box"></div>
@@ -403,9 +405,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                 <input type="hidden" name="action_type" value="update_patient_med">
                 <input type="hidden" name="med_id" id="edit_med_id">
                 
-                <div class="form-group">
+                <div class="form-group" style="position: relative;">
                     <label>Medicine Name:</label>
-                    <input type="text" name="medicine_name" id="edit_medicine_name" required>
+                    <input type="text" name="medicine_name" id="edit_medicine_name" placeholder="Type to search..." required autocomplete="off">
+                    <div id="edit_medicine_suggestions_box" class="search-results-box"></div>
                 </div>
                 
                 <div class="form-row-inner">
@@ -529,6 +532,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         if (item.med_unit) document.getElementById('med_unit_input').value = item.med_unit;
     }
 
+    function fillEditMedicineFields(item) {
+        if (!item) return;
+        if (item.medicine_name) document.getElementById('edit_medicine_name').value = item.medicine_name;
+        if (item.med_form) document.getElementById('edit_med_form').value = item.med_form;
+        if (item.med_unit) document.getElementById('edit_med_unit').value = item.med_unit;
+    }
+
     function setupLiveSearch(inputElement, boxElement, searchType) {
         if (!inputElement || !boxElement) return;
         inputElement.addEventListener('input', function() {
@@ -571,7 +581,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         });
     }
 
-    // Setup live autocomplete search for medicine and salt
+    // Setup live autocomplete search for edit modal medicine name
+    function setupEditLiveSearch(inputElement, boxElement) {
+        if (!inputElement || !boxElement) return;
+        inputElement.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                fetch('search_medicine_endpoint.php?type=patient_medicine&q=' + encodeURIComponent(query))
+                    .then(response => response.json())
+                    .then(data => {
+                        boxElement.innerHTML = '';
+                        if (Array.isArray(data) && data.length > 0) {
+                            data.forEach(item => {
+                                const div = document.createElement('div');
+                                div.classList.add('search-item');
+                                div.textContent = item.medicine_name + (item.salt_name ? ' • ' + item.salt_name : '');
+                                div.addEventListener('click', function() {
+                                    fillEditMedicineFields(item);
+                                    boxElement.style.display = 'none';
+                                });
+                                boxElement.appendChild(div);
+                            });
+                            boxElement.style.display = 'block';
+                        } else {
+                            boxElement.style.display = 'none';
+                        }
+                    })
+                    .catch(() => boxElement.style.display = 'none');
+            } else {
+                boxElement.style.display = 'none';
+            }
+        });
+
+        inputElement.addEventListener('focus', function() {
+            if (boxElement.innerHTML.trim() !== '') {
+                boxElement.style.display = 'block';
+            }
+        });
+    }
+
+    // Setup live autocomplete search for medicine and salt in Add form
     setupLiveSearch(document.getElementById('medicine_name_autocomplete'), document.getElementById('medicine_suggestions_box'), 'medicine');
     setupLiveSearch(document.getElementById('salt_name_autocomplete'), document.getElementById('salt_suggestions_box'), 'salt');
 
@@ -627,6 +676,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         document.getElementById('edit_dosage_notes').value = medObj.dosage_notes;
         
         toggleModalPriceField();
+        
+        // Setup edit modal search after modal opens
+        setupEditLiveSearch(document.getElementById('edit_medicine_name'), document.getElementById('edit_medicine_suggestions_box'));
+        
         document.getElementById('editMedicineModal').style.display = 'flex';
     }
 
