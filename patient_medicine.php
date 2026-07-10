@@ -11,6 +11,36 @@ $rows = $resulta->fetch_assoc();
 
 if($rows && isset($_SESSION['reg_username']) && $_SESSION['reg_username'] == $rows['username'] && $_SESSION['reg_role'] == $rows['role'] && $_SESSION['reg_name'] == $rows['name']){
 
+// ============================================
+// AJAX SEARCH ENDPOINT (Embedded)
+// ============================================
+if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_GET['action']) && $_GET['action'] == 'search_medicine') {
+    header('Content-Type: application/json');
+    $query = isset($_GET['q']) ? mysqli_real_escape_string($conn, $_GET['q']) : '';
+    
+    if(strlen($query) < 2) {
+        echo json_encode([]);
+        exit();
+    }
+    
+    // Search medicines from database - only medicine name
+    $sql = "SELECT DISTINCT medicine_name FROM medicines WHERE medicine_name LIKE '%$query%' ORDER BY medicine_name ASC LIMIT 20";
+    $result = $conn->query($sql);
+    
+    $medicines = [];
+    if($result && $result->num_rows > 0) {
+        while($row = $result->fetch_assoc()) {
+            $medicines[] = [
+                "medicine_name" => $row['medicine_name'],
+                "display" => $row['medicine_name']
+            ];
+        }
+    }
+    
+    echo json_encode($medicines);
+    exit();
+}
+
 // URL se token (patient) ki ID lena
 if (isset($_GET['id'])) {
     $token_id = mysqli_real_escape_string($conn, $_GET['id']);
@@ -133,7 +163,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                 
                 // Action Icon trigger to Modal
                 $html .= '  <div class="token-cell action-cell" style="text-align: right;">
-                                <button type="button" class="btn-action-icon" onclick=\'openEditModal('.json_encode($med_row).')\' title="Edit/Manage" style="background:none; border:none; color:var(--primary-color); cursor:pointer;"><i class="fa-solid fa-pen-to-square"></i> Manage</button>
+                                <button type="button" class="btn-action-icon" onclick=\'openEditModal('.json_encode($med_row).')\' title="Edit/Manage" style="background:none; border:none; color:var(--primary-color); cursor:pointer;">
+                                    <i class="fa-solid fa-edit"></i>
+                                </button>
                             </div>';
                 $html .= '</div>';
             }
@@ -182,10 +214,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         h1, h2, h3, h4 { font-family: 'Montserrat', sans-serif; font-weight: 700; }
 
         /* Top Bar & Header */
-        .top-bar { background-color: var(--dark-color); color: white; padding: 12px 5%; display: flex; justify-content: space-between; align-items: center; font-size: 14px; border-bottom: 2px solid var(--secondary-color); }
+        .top-bar { background-color: var(--dark-color); color: white; padding: 12px 5%; display: flex; justify-content: space-between; align-items: center; font-size: 14px; border-bottom: 2px solid var(--accent-color); }
         .top-bar .badge { background-color: var(--accent-color); padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 12px; }
         
-        header { background: white; padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 1000; }
+        header { background: white; padding: 15px 5%; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 100; }
         .logo-container { display: flex; align-items: center; gap: 12px; cursor: pointer; }
         .logo-icon { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white; width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
         .logo-text h1 { font-size: 20px; color: var(--dark-color); line-height: 1.1; }
@@ -207,29 +239,61 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         .form-group { margin-bottom: 15px; position: relative; } 
         .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #555; }
         .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-        .search-results-box { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid #ccc; border-top: none; border-radius: 0 0 4px 4px; max-height: 200px; overflow-y: auto; z-index: 99999; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: none; }
-        .search-item { padding: 10px; cursor: pointer; font-size: 14px; color: #333; border-bottom: 1px solid #f0f0f0; text-align: left; }
-        .search-item:hover { background-color: #edf6f9; color: var(--primary-color); font-weight: 600; }
+        
+        /* AUTOCOMPLETE STYLES */
+        .search-results-box { 
+            position: absolute; 
+            top: 100%; 
+            left: 0; 
+            width: 100%; 
+            background: white; 
+            border: 1px solid #ccc; 
+            border-top: none; 
+            border-radius: 0 0 4px 4px; 
+            max-height: 200px; 
+            overflow-y: auto; 
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .search-results-box.show { display: block; }
+        .search-item { 
+            padding: 12px; 
+            cursor: pointer; 
+            font-size: 14px; 
+            color: #333; 
+            border-bottom: 1px solid #f0f0f0; 
+            text-align: left;
+            transition: all 0.2s;
+        }
+        .search-item:hover { 
+            background-color: #edf6f9; 
+            color: var(--primary-color); 
+            font-weight: 600;
+            padding-left: 15px;
+        }
+        .search-item:last-child { border-bottom: none; }
+        
         .form-row-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         
-        .btn-submit { background-color: var(--success-color); color: white; width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; text-transform: uppercase; margin-top: 10px; }
-        .btn-submit:hover { background-color: #218838; }
+        .btn-submit { background-color: var(--success-color); color: white; width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; text-transform: uppercase; transition: all 0.3s; }
+        .btn-submit:hover { background-color: #218838; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(42, 157, 143, 0.3); }
 
         /* Fixed Proportional Rows for columns */
-        .token-row { display: flex; justify-content: space-between; align-items: center; background-color: #ffffff; padding: 12px 10px; margin-bottom: 8px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .token-row { display: flex; justify-content: space-between; align-items: center; background-color: #ffffff; padding: 12px 10px; margin-bottom: 8px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
         .header-row { background-color: #0083b0; color: white; font-weight: bold; box-shadow: none; }
         .token-cell { padding: 0 5px; font-size: 13px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Layout Allocations */
-        .token-row .token-cell:nth-child(1) { flex: 0 0 18%; font-weight: 600; color: #0056b3; white-space: normal; } /* Medicine Name */
-        .token-row .token-cell:nth-child(2) { flex: 0 0 10%; } /* Type */
-        .token-row .token-cell:nth-child(3) { flex: 0 0 6%; font-weight: bold; text-align: center; }  /* Qty */
-        .token-row .token-cell:nth-child(4) { flex: 0 0 8%; }  /* Unit */
-        .token-row .token-cell:nth-child(5) { flex: 0 0 10%; font-weight: 600; } /* Status */
-        .token-row .token-cell:nth-child(6) { flex: 0 0 10%; font-weight: bold; } /* Charged */
-        .token-row .token-cell:nth-child(7) { flex: 0 0 18%; white-space: normal; } /* Dosage Notes */
-        .token-row .token-cell:nth-child(8) { flex: 0 0 10%; font-weight: bold; text-align: right; } /* Medicine Amount */
-        .token-row .token-cell.action-cell { flex: 0 0 10%; text-align: right; } /* Action header/cell */
+        .token-row .token-cell:nth-child(1) { flex: 0 0 18%; font-weight: 600; color: #0056b3; white-space: normal; }
+        .token-row .token-cell:nth-child(2) { flex: 0 0 10%; }
+        .token-row .token-cell:nth-child(3) { flex: 0 0 6%; font-weight: bold; text-align: center; }
+        .token-row .token-cell:nth-child(4) { flex: 0 0 8%; }
+        .token-row .token-cell:nth-child(5) { flex: 0 0 10%; font-weight: 600; }
+        .token-row .token-cell:nth-child(6) { flex: 0 0 10%; font-weight: bold; }
+        .token-row .token-cell:nth-child(7) { flex: 0 0 18%; white-space: normal; }
+        .token-row .token-cell:nth-child(8) { flex: 0 0 10%; font-weight: bold; text-align: right; }
+        .token-row .token-cell.action-cell { flex: 0 0 10%; text-align: right; }
 
         .header-row .token-cell { color: white !important; text-align: left !important; }
         .header-row .token-cell:nth-child(3) { text-align: center !important; }
@@ -238,12 +302,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         .status-free { color: var(--success-color); font-weight: bold; }
         .status-paid { color: var(--accent-color); font-weight: bold; }
         
-        /* Modals Layering Style Setup */
+        /* Modals */
         .custom-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1050; justify-content: center; align-items: center; }
         .modal-content { background: #fff; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); animation: fadeIn 0.25s ease; position: relative; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         
-        /* Secondary nested delete confirmation overlay setup */
         #deleteConfirmationModal { z-index: 1100; background: rgba(0,0,0,0.7); }
         #deleteConfirmationModal .modal-content { max-width: 400px; text-align: center; }
 
@@ -251,7 +314,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         .btn-modal-delete { background: var(--accent-color); color: white; padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
         .btn-modal-close { background: #ccc; color: #333; padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
         
-        .btn-action-icon { font-weight: bold; padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; background: #fff; font-size: 12px; transition: all 0.2s; }
+        .btn-action-icon { font-weight: bold; padding: 6px 10px; border-radius: 4px; border: 1px solid #ccc; background: #fff; font-size: 14px; transition: all 0.2s; color: var(--primary-color); }
         .btn-action-icon:hover { background: var(--primary-color); color: white !important; }
 
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
@@ -287,9 +350,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
     <div class="container">
         
         <div class="patient-card">
-            <h3 style="color: var(--dark-color);"><i class="fa-solid fa-user-check"></i> Patient Information <strong>  (Date:</strong><span><?php echo $patient['date']; ?>)</span></h3>
+            <h3 style="color: var(--dark-color);"><i class="fa-solid fa-user-check"></i> Patient Information</h3>
             <div class="patient-grid">
-                <div class="info-block"><strong>Token ID - Name & Fees:</strong><span>#<?php echo $patient['id'] . " - " . $patient['patient_fullname']. " - " . $patient['fees']; ?></span></div>
+                <div class="info-block"><strong>Token ID & Name:</strong><span>#<?php echo $patient['id'] . " - " . $patient['patient_fullname']; ?></span></div>
                 <div class="info-block"><strong>Assigned Doctor:</strong><span style="color: #28a745;"><?php echo $patient['doctor_for_patient']; ?></span></div>
                 <div class="info-block"><strong>Age & Phone:</strong><span><?php echo $patient['patient_age']; ?> Yrs | <?php echo $patient['patient_phone']; ?></span></div>
                 <div class="info-block"><strong>Address:</strong><span><?php echo $patient['patient_address']; ?></span></div>
@@ -304,26 +367,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                     <input type="hidden" name="action_type" value="add_patient_med">
                     <input type="hidden" name="token_id" value="<?php echo $token_id; ?>">
 
-<div class="form-group" style="position: relative;">
-                        <label>Medicine Name:</label>
-                        <input type="text" name="medicine_name" id="medicine_name_autocomplete" placeholder="Type or search medicine name..." required autocomplete="off">
-                        <div id="medicine_suggestions_box" class="search-results-box"></div>
-                    </div>
                     <div class="form-group" style="position: relative;">
-                        <label>Salt Name:</label>
-                        <input type="text" name="salt_name" id="salt_name_autocomplete" placeholder="Type or search salt name..." autocomplete="off">
-                        <div id="salt_suggestions_box" class="search-results-box"></div>
+                        <label>Medicine Name:</label>
+                        <input type="text" name="medicine_name" id="medicine_name_add" placeholder="Type 2-3 letters to search..." required autocomplete="off">
+                        <div id="medicine_suggestions_add" class="search-results-box"></div>
                     </div>
 
                     <div class="form-row-inner">
                         <div class="form-group">
                             <label>Form Type:</label>
-                            <select name="med_form" id="med_form_input">
+                            <select name="med_form">
                                 <option value="Tablet">Tablet</option>
                                 <option value="Syrup">Syrup</option>
                                 <option value="Injection">Injection</option>
                                 <option value="Drips">Drips</option>
-                                <option value="Pieces">Pieces</option>
                                 <option value="Capsule">Capsule</option>
                                 <option value="Drops">Drops</option>
                                 <option value="Ointment">Ointment</option>
@@ -331,7 +388,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                         </div>
                         <div class="form-group">
                             <label>Measuring Unit:</label>
-                            <select name="med_unit" id="med_unit_input">
+                            <select name="med_unit">
                                 <option value="Tablet">Tablet (Solid)</option>
                                 <option value="Ml">Ml (Liquid)</option>
                                 <option value="Pc(s)">Pc (Pieces)</option>
@@ -392,7 +449,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         </div>
     </div>
 
-    <!-- MAIN EDIT MEDICINE POPUP MODAL (NEW DIV) -->
+    <!-- MAIN EDIT MEDICINE POPUP MODAL -->
     <div class="custom-modal" id="editMedicineModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -403,9 +460,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                 <input type="hidden" name="action_type" value="update_patient_med">
                 <input type="hidden" name="med_id" id="edit_med_id">
                 
-                <div class="form-group">
+                <div class="form-group" style="position: relative;">
                     <label>Medicine Name:</label>
-                    <input type="text" name="medicine_name" id="edit_medicine_name" required>
+                    <input type="text" name="medicine_name" id="edit_medicine_name" placeholder="Type to search..." required autocomplete="off">
+                    <div id="medicine_suggestions_edit" class="search-results-box"></div>
                 </div>
                 
                 <div class="form-row-inner">
@@ -416,7 +474,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
                             <option value="Syrup">Syrup</option>
                             <option value="Injection">Injection</option>
                             <option value="Drips">Drips</option>
-                            <option value="Pieces">Pieces</option>
                             <option value="Capsule">Capsule</option>
                             <option value="Drops">Drops</option>
                             <option value="Ointment">Ointment</option>
@@ -469,7 +526,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         </div>
     </div>
 
-    <!-- NEW INDEPENDENT CONFIRMATION DIV (MODAL) FOR DELETE -->
+    <!-- DELETE CONFIRMATION MODAL -->
     <div class="custom-modal" id="deleteConfirmationModal">
         <div class="modal-content">
             <h3 style="color:var(--accent-color); margin-bottom:12px;"><i class="fa-solid fa-triangle-exclamation"></i> Are you sure?</h3>
@@ -489,6 +546,79 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
     const currentTokenId = "<?php echo $token_id; ?>";
     let activeMedObject = null;
 
+    // ============================================
+    // AUTOCOMPLETE SEARCH FUNCTION
+    // ============================================
+    function setupAutocomplete(inputSelector, suggestionsSelector) {
+        const inputElement = document.querySelector(inputSelector);
+        const suggestionsBox = document.querySelector(suggestionsSelector);
+        
+        if (!inputElement || !suggestionsBox) return;
+
+        // On input change
+        inputElement.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            if (query.length >= 2) {
+                // Fetch suggestions from backend
+                fetch('?action=search_medicine&q=' + encodeURIComponent(query))
+                    .then(response => response.json())
+                    .then(data => {
+                        suggestionsBox.innerHTML = '';
+                        
+                        if (Array.isArray(data) && data.length > 0) {
+                            data.forEach(item => {
+                                const div = document.createElement('div');
+                                div.classList.add('search-item');
+                                div.textContent = item.medicine_name;
+                                
+                                div.addEventListener('click', function() {
+                                    inputElement.value = item.medicine_name;
+                                    suggestionsBox.classList.remove('show');
+                                    suggestionsBox.innerHTML = '';
+                                });
+                                
+                                suggestionsBox.appendChild(div);
+                            });
+                            suggestionsBox.classList.add('show');
+                        } else {
+                            suggestionsBox.classList.remove('show');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Search error:', error);
+                        suggestionsBox.classList.remove('show');
+                    });
+            } else {
+                suggestionsBox.classList.remove('show');
+                suggestionsBox.innerHTML = '';
+            }
+        });
+
+        // On focus - show existing suggestions
+        inputElement.addEventListener('focus', function() {
+            if (suggestionsBox.innerHTML.trim() !== '') {
+                suggestionsBox.classList.add('show');
+            }
+        });
+    }
+
+    // Close suggestions when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.form-group')) {
+            document.querySelectorAll('.search-results-box').forEach(box => {
+                box.classList.remove('show');
+            });
+        }
+    });
+
+    // Initialize autocomplete for both forms
+    setupAutocomplete('#medicine_name_add', '#medicine_suggestions_add');
+    setupAutocomplete('#edit_medicine_name', '#medicine_suggestions_edit');
+
+    // ============================================
+    // EXISTING FUNCTIONS (Price Field, etc.)
+    // ============================================
     function togglePriceField() {
         const status = document.getElementById('payment_status').value;
         const priceField = document.getElementById('medicine_price');
@@ -517,70 +647,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         }
     }
 
-    function closeAllSuggestionBoxes() {
-        document.querySelectorAll('.search-results-box').forEach(box => box.style.display = 'none');
-    }
-
-    function fillPatientMedicineFields(item) {
-        if (!item) return;
-        if (item.medicine_name) document.getElementById('medicine_name_autocomplete').value = item.medicine_name;
-        if (item.salt_name) document.getElementById('salt_name_autocomplete').value = item.salt_name;
-        if (item.med_form) document.getElementById('med_form_input').value = item.med_form;
-        if (item.med_unit) document.getElementById('med_unit_input').value = item.med_unit;
-    }
-
-    function setupLiveSearch(inputElement, boxElement, searchType) {
-        if (!inputElement || !boxElement) return;
-        inputElement.addEventListener('input', function() {
-            const query = this.value.trim();
-            if (query.length >= 2) {
-                fetch('search_medicine_endpoint.php?type=patient_medicine&q=' + encodeURIComponent(query))
-                    .then(response => response.json())
-                    .then(data => {
-                        boxElement.innerHTML = '';
-                        if (Array.isArray(data) && data.length > 0) {
-                            data.forEach(item => {
-                                const div = document.createElement('div');
-                                div.classList.add('search-item');
-                                if (searchType === 'medicine') {
-                                    div.textContent = item.medicine_name + (item.salt_name ? ' • ' + item.salt_name : '');
-                                } else {
-                                    div.textContent = item.salt_name + (item.medicine_name ? ' • ' + item.medicine_name : '');
-                                }
-                                div.addEventListener('click', function() {
-                                    fillPatientMedicineFields(item);
-                                    closeAllSuggestionBoxes();
-                                });
-                                boxElement.appendChild(div);
-                            });
-                            boxElement.style.display = 'block';
-                        } else {
-                            boxElement.style.display = 'none';
-                        }
-                    })
-                    .catch(() => boxElement.style.display = 'none');
-            } else {
-                boxElement.style.display = 'none';
-            }
-        });
-
-        inputElement.addEventListener('focus', function() {
-            if (boxElement.innerHTML.trim() !== '') {
-                boxElement.style.display = 'block';
-            }
-        });
-    }
-
-    // Setup live autocomplete search for medicine and salt
-    setupLiveSearch(document.getElementById('medicine_name_autocomplete'), document.getElementById('medicine_suggestions_box'), 'medicine');
-    setupLiveSearch(document.getElementById('salt_name_autocomplete'), document.getElementById('salt_suggestions_box'), 'salt');
-
-    document.addEventListener('click', function(event) {
-        if (!event.target.closest('.form-group')) {
-            closeAllSuggestionBoxes();
-        }
-    });
-
     // Fetch Live List Function via AJAX
     function fetchMedicineList() {
         const formData = new FormData();
@@ -607,14 +673,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
             if(data.status === 'success') {
                 this.reset();
                 togglePriceField();
-                fetchMedicineList(); // Live refresh list
+                document.querySelector('#medicine_suggestions_add').classList.remove('show');
+                fetchMedicineList();
             } else {
                 alert("Error adding row: " + data.message);
             }
         });
     });
 
-    // Open Main Edit Modal popup (New Div)
+    // Open Main Edit Modal popup
     function openEditModal(medObj) {
         activeMedObject = medObj;
         document.getElementById('edit_med_id').value = medObj.id;
@@ -644,14 +711,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
         .then(data => {
             if(data.status === 'success') {
                 closeEditModal();
-                fetchMedicineList(); // Live refresh table rows
+                document.querySelector('#medicine_suggestions_edit').classList.remove('show');
+                fetchMedicineList();
             } else {
                 alert("Error updating: " + data.message);
             }
         });
     });
 
-    // Nested Delete Confirmation Triggers
+    // Delete Confirmation Triggers
     function openDeleteConfirmation() {
         document.getElementById('deleteConfirmationModal').style.display = 'flex';
     }
@@ -674,7 +742,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action_type'])) {
             closeDeleteConfirmation();
             if(data.status === 'success') {
                 closeEditModal();
-                fetchMedicineList(); // Live refresh list & Grand total amount updates smoothly
+                fetchMedicineList();
             } else {
                 alert("Error deleting: " + data.message);
             }
